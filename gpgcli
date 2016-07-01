@@ -1,0 +1,176 @@
+#!/usr/bin/python
+# Based in an original script from:
+# http://stackoverflow.com/questions/1510105/gnupg-how-to-edit-the-file-without-decrypt-and-save-to-local-disk-first
+
+###### START CONFIGURATION #########################################
+# editor
+editor = 'nano'
+# viewer
+viewer = 'cat'
+lessviewer = 'less'
+grepviewer = 'grep'
+# GPG binary
+gpg_bin = 'gpg'
+
+###### STOP CONFIGURATION ##########################################
+
+import os, sys, subprocess, getpass, stat, shutil
+import uuid
+import hashlib
+import argparse
+
+def delete(f):
+    if os.path.isfile(f):
+        os.remove(f)
+
+def create(f):
+    cmd = 'touch %s && chmod 600 %s' % (f, f)
+    proc = subprocess.Popen(cmd, shell=True)
+    if proc.wait() != 0:
+        print "Error creating temp file"
+        delete(f)
+        sys.exit(1)
+
+# dict for translations of mode/actions based either in parameter or script name
+workingmode = {
+	'view' : 'view',
+	'cat' : 'view',
+    'edit' : 'edit',
+    'nano' : 'edit',
+    'grep' : 'grep',
+    'gcat' : 'view',
+    'gless' : 'less',
+    'gnano' : 'edit',
+    'ggrep' : 'grep',
+    'gpgcat' : 'view',
+    'gpgview' : 'view',
+    'gpgless' : 'less',
+    'gpgnano' : 'edit',
+    'gpgedit' : 'edit',
+    'gpggrep' : 'grep',
+    'gpgrep' : 'grep',
+    'gpgfile' : 'view'
+    'gpgcli' : 'view',
+}
+
+
+parser = argparse.ArgumentParser(description='Easy wrapper for operating with gpg encrypted files')
+parser.add_argument('files', nargs='+',
+                    help='a file name or list of files to process')
+parser.add_argument('--action', '-a', '--mode', '-m', nargs=1, default='not_provided', 
+                    choices=['view','cat','less','grep','edit','nano'],
+                    help='what to do with the file(s) (default: view)')
+parser.add_argument('--grep', '-g', nargs=1, default='', 
+                    help='grep pattern to apply for "grep" action/mode')
+parser.add_argument('--gpg-encrypt-opts', nargs=1, default='--no-use-agent -c --yes', dest='gpg_encrypt',
+                    help='encrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent -c --yes")')
+parser.add_argument('--gpg-decrypt-opts', nargs=1, default='--no-use-agent --yes', dest='gpg_decrypt',
+                    help='decrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent --yes")')
+
+
+args = parser.parse_args()
+
+# GPG options used during encrypt/decrypt
+gpg_encrypt_opts = args.gpg_encrypt
+gpg_decrypt_opts = args.gpg_decrypt
+
+if (args.action == "not_provided"):
+    action = workingmode.get(os.path.basename(__file__), 'none')
+else:
+    action = workingmode.get(args.action[0])
+
+# catch less usage instead of cat
+if action == 'less':
+    viewer = lessviewer
+    action = 'view'
+# catch grep action
+if action == 'grep':
+    viewer = grepviewer + ' ' + ' '.join(args.grep)
+    action = 'view'
+
+dataFile = sys.argv[1]
+
+if ( action == 'none' ):
+    print "Invalid mode"
+    sys.exit(1)
+
+if ( action == 'grep' and args.grep == '' ):
+    print "Grep mode without grep pattern: what?"
+    sys.exit(1)
+
+
+tmpFile = '/dev/shm/' + str(uuid.uuid4())
+
+try:
+
+    # view a file
+    if action == 'view':
+
+        if not os.path.isfile(dataFile):
+            print "File " + dataFile + " does not exist."
+            sys.exit(1)
+
+        cmd = gpg_bin + " " + gpg_decrypt_opts +  " -o - " + dataFile + " 2>/dev/null | " + viewer
+        proc = subprocess.Popen(cmd, shell=True)
+        if proc.wait() != 0:
+            if ( viewer.split()[0] != 'grep'):
+                print "Error decrypting " + dataFile
+            sys.exit(1)
+
+        sys.exit(0)
+
+    else:
+
+        create(tmpFile)
+
+        if os.path.isfile(dataFile):
+
+            passwd = getpass.getpass()
+
+            # decrypt file
+            cmd = gpg_bin + ' ' + gpg_decrypt_opts + ' --passphrase-fd 0 -o %s %s' % (tmpFile, dataFile)
+            proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE)
+            proc.stdin.write(passwd)
+            proc.stdin.close()
+            if proc.wait() != 0:
+                print "Error decrypting " + dataFile
+                delete(tmpFile)
+                sys.exit(1)
+
+        before = hashlib.sha1(open(tmpFile, 'rb').read()).hexdigest()
+
+        cmd = '%s %s' % (editor, tmpFile)
+        proc = subprocess.Popen(cmd, shell=True)
+        if proc.wait() != 0:
+            print "Error editing file"
+            delete(tmpFile)
+            sys.exit(1)
+
+        after = hashlib.sha1(open(tmpFile, 'rb').read()).hexdigest()
+
+        if (before != after) or not os.path.isfile(dataFile):
+
+            if os.path.isfile(dataFile):
+                cmd = gpg_bin + ' ' + gpg_encrypt_opts + ' --passphrase-fd 0 -o %s %s' % (dataFile, tmpFile)
+                proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE)
+                proc.stdin.write(passwd)
+                proc.stdin.close()
+            else:
+                cmd = gpg_bin + ' ' + gpg_encrypt_opts + ' -o %s %s' % (dataFile, tmpFile)
+                proc = subprocess.Popen(cmd, shell=True)
+
+            if proc.wait() != 0:
+                print "Error encrypting " + dataFile
+                delete(tmpFile)
+                sys.exit(1)
+
+        else:
+            print "File untouched. Skipped encryption."
+
+        delete(tmpFile)
+        sys.exit(0)
+
+except:
+
+    delete(tmpFile)
+    sys.exit(1)
