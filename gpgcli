@@ -101,7 +101,8 @@ try:
         proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         outs, errs = proc.communicate(input=passwd)
 
-        if ( viewer.split()[0] == 'less' ):
+
+        if ( viewer == 'less' ):
             pydoc.pager(outs)
         else:
             print outs
