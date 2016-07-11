@@ -35,32 +35,32 @@ def create(f):
 workingmode = {
 	'view' : 'view',
 	'cat' : 'view',
-    'edit' : 'edit',
-    'nano' : 'edit',
-    'grep' : 'grep',
-    'gcat' : 'view',
-    'gless' : 'less',
-    'gnano' : 'edit',
-    'ggrep' : 'grep',
-    'gpgcat' : 'view',
-    'gpgview' : 'view',
-    'gpgless' : 'less',
-    'gpgnano' : 'edit',
-    'gpgedit' : 'edit',
-    'gpggrep' : 'grep',
-    'gpgrep' : 'grep',
-    'gpgfile' : 'view'
-    'gpgcli' : 'view',
+	'edit' : 'edit',
+	'nano' : 'edit',
+	'grep' : 'grep',
+	'gcat' : 'view',
+	'gless' : 'less',
+	'gnano' : 'edit',
+	'ggrep' : 'grep',
+	'gpgcat' : 'view',
+	'gpgview' : 'view',
+	'gpgless' : 'less',
+	'gpgnano' : 'edit',
+	'gpgedit' : 'edit',
+	'gpggrep' : 'grep',
+	'gpgrep' : 'grep',
+	'gpgfile' : 'view',
+	'gpgcli' : 'view',
 }
 
 
 parser = argparse.ArgumentParser(description='Easy wrapper for operating with gpg encrypted files')
 parser.add_argument('files', nargs='+',
                     help='a file name or list of files to process')
-parser.add_argument('--action', '-a', '--mode', '-m', nargs=1, default='not_provided', 
+parser.add_argument('--action', '-a', '--mode', '-m', nargs=1, default='not_provided',
                     choices=['view','cat','less','grep','edit','nano'],
                     help='what to do with the file(s) (default: view)')
-parser.add_argument('--grep', '-g', nargs=1, default='', 
+parser.add_argument('--grep', '-g', nargs=1, default='',
                     help='grep pattern to apply for "grep" action/mode')
 parser.add_argument('--gpg-encrypt-opts', nargs=1, default='--no-use-agent -c --yes', dest='gpg_encrypt',
                     help='encrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent -c --yes")')
