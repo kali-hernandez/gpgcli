@@ -18,6 +18,7 @@ import os, sys, subprocess, getpass, stat, shutil
 import uuid
 import hashlib
 import argparse
+import pydoc
 
 def delete(f):
     if os.path.isfile(f):
@@ -33,30 +34,29 @@ def create(f):
 
 # dict for translations of mode/actions based either in parameter or script name
 workingmode = {
-	'view' : 'view',
-	'cat' : 'view',
-	'edit' : 'edit',
-	'nano' : 'edit',
-	'grep' : 'grep',
-	'gcat' : 'view',
-	'gless' : 'less',
-	'gnano' : 'edit',
-	'ggrep' : 'grep',
-	'gpgcat' : 'view',
-	'gpgview' : 'view',
-	'gpgless' : 'less',
-	'gpgnano' : 'edit',
-	'gpgedit' : 'edit',
-	'gpggrep' : 'grep',
-	'gpgrep' : 'grep',
-	'gpgfile' : 'view',
-	'gpgcli' : 'view',
+    'view' : 'view',
+    'cat' : 'view',
+    'less' : 'less',
+    'edit' : 'edit',
+    'nano' : 'edit',
+    'grep' : 'grep',
+    'gcat' : 'view',
+    'gless' : 'less',
+    'gnano' : 'edit',
+    'ggrep' : 'grep',
+    'gpgcat' : 'view',
+    'gpgview' : 'view',
+    'gpgless' : 'less',
+    'gpgnano' : 'edit',
+    'gpgedit' : 'edit',
+    'gpggrep' : 'grep',
+    'gpgrep' : 'grep',
+    'gpgfile' : 'view',
+    'gpgcli' : 'view',
 }
 
 
 parser = argparse.ArgumentParser(description='Easy wrapper for operating with gpg encrypted files')
-parser.add_argument('files', nargs='+',
-                    help='a file name or list of files to process')
 parser.add_argument('--action', '-a', '--mode', '-m', nargs=1, default='not_provided',
                     choices=['view','cat','less','grep','edit','nano'],
                     help='what to do with the file(s) (default: view)')
@@ -66,9 +66,11 @@ parser.add_argument('--gpg-encrypt-opts', nargs=1, default='--no-use-agent -c --
                     help='encrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent -c --yes")')
 parser.add_argument('--gpg-decrypt-opts', nargs=1, default='--no-use-agent --yes', dest='gpg_decrypt',
                     help='decrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent --yes")')
-
+parser.add_argument('files', nargs=argparse.REMAINDER,
+                    help='a file name or list of files to process')
 
 args = parser.parse_args()
+dataFile = ''.join(args.files)
 
 # GPG options used during encrypt/decrypt
 gpg_encrypt_opts = args.gpg_encrypt
@@ -87,8 +89,6 @@ if action == 'less':
 if action == 'grep':
     viewer = grepviewer + ' ' + ' '.join(args.grep)
     action = 'view'
-
-dataFile = sys.argv[1]
 
 if ( action == 'none' ):
     print "Invalid mode"
@@ -110,8 +110,17 @@ try:
             print "File " + dataFile + " does not exist."
             sys.exit(1)
 
-        cmd = gpg_bin + " " + gpg_decrypt_opts +  " -o - " + dataFile + " 2>/dev/null | " + viewer
-        proc = subprocess.Popen(cmd, shell=True)
+        passwd = getpass.getpass()
+
+        cmd = gpg_bin + " " + gpg_decrypt_opts +  " --passphrase-fd 0 -o - " + dataFile
+        proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        outs, errs = proc.communicate(input=passwd)
+
+        if ( viewer.split()[0] == 'less' ):
+            pydoc.pager(outs)
+        else:
+            print outs
+
         if proc.wait() != 0:
             if ( viewer.split()[0] != 'grep'):
                 print "Error decrypting " + dataFile
