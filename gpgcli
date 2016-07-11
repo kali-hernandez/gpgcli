@@ -8,7 +8,6 @@ editor = 'nano'
 # viewer
 viewer = 'cat'
 lessviewer = 'less'
-grepviewer = 'grep'
 # GPG binary
 gpg_bin = 'gpg'
 
@@ -39,18 +38,14 @@ workingmode = {
     'less' : 'less',
     'edit' : 'edit',
     'nano' : 'edit',
-    'grep' : 'grep',
     'gcat' : 'view',
     'gless' : 'less',
     'gnano' : 'edit',
-    'ggrep' : 'grep',
     'gpgcat' : 'view',
     'gpgview' : 'view',
     'gpgless' : 'less',
     'gpgnano' : 'edit',
     'gpgedit' : 'edit',
-    'gpggrep' : 'grep',
-    'gpgrep' : 'grep',
     'gpgfile' : 'view',
     'gpgcli' : 'view',
 }
@@ -58,10 +53,8 @@ workingmode = {
 
 parser = argparse.ArgumentParser(description='Easy wrapper for operating with gpg encrypted files')
 parser.add_argument('--action', '-a', '--mode', '-m', nargs=1, default='not_provided',
-                    choices=['view','cat','less','grep','edit','nano'],
+                    choices=['view','cat','less','edit','nano'],
                     help='what to do with the file(s) (default: view)')
-parser.add_argument('--grep', '-g', nargs=1, default='',
-                    help='grep pattern to apply for "grep" action/mode')
 parser.add_argument('--gpg-encrypt-opts', nargs=1, default='--no-use-agent -c --yes', dest='gpg_encrypt',
                     help='encrypt options for gpg (within quotes, or whitespace-escaped) (default: "--no-use-agent -c --yes")')
 parser.add_argument('--gpg-decrypt-opts', nargs=1, default='--no-use-agent --yes', dest='gpg_decrypt',
@@ -85,17 +78,9 @@ else:
 if action == 'less':
     viewer = lessviewer
     action = 'view'
-# catch grep action
-if action == 'grep':
-    viewer = grepviewer + ' ' + ' '.join(args.grep)
-    action = 'view'
 
 if ( action == 'none' ):
     print "Invalid mode"
-    sys.exit(1)
-
-if ( action == 'grep' and args.grep == '' ):
-    print "Grep mode without grep pattern: what?"
     sys.exit(1)
 
 
@@ -122,8 +107,7 @@ try:
             print outs
 
         if proc.wait() != 0:
-            if ( viewer.split()[0] != 'grep'):
-                print "Error decrypting " + dataFile
+            print "Error decrypting " + dataFile
             sys.exit(1)
 
         sys.exit(0)
